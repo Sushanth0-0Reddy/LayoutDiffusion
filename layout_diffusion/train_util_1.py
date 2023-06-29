@@ -21,7 +21,7 @@ from layout_diffusion.layout_diffusion_unet import LayoutDiffusionUNetModel
 # We found that the lg_loss_scale quickly climbed to
 # 20-21 within the first ~1K steps of training.
 INITIAL_LOG_LOSS_SCALE = 20.0
-from diffusers.models import AutoencoderKL
+#from diffusers.models import AutoencoderKL
 
 class TrainLoop:
     def __init__(
@@ -138,25 +138,6 @@ class TrainLoop:
         self.classifier_free = classifier_free
         self.classifier_free_dropout = classifier_free_dropout
         self.dropout_condition = False
-
-        self.latent_diffusion = latent_diffusion
-        if self.latent_diffusion:
-            self.instantiate_first_stage()
-
-    def instantiate_first_stage(self):
-        model = AutoencoderKL.from_pretrained(self.vae_root_dir).to(dist_util.dev())
-        self.first_stage_model = model.eval()
-        self.first_stage_model.train = False
-        for param in self.first_stage_model.parameters():
-            param.requires_grad = False
-
-    # https://github.com/huggingface/diffusers/blob/29b2c93c9005c87f8f04b1f0835babbcea736204/src/diffusers/models/autoencoder_kl.py
-    @th.no_grad()
-    def get_first_stage_encoding(self, x):
-        with th.no_grad():
-            encoder_posterior = self.first_stage_model.encode(x, return_dict=True)[0]
-            z = encoder_posterior.sample()
-            return z.to(dist_util.dev()) * self.scale_factor
 
     def _load_and_sync_parameters(self):
         resume_checkpoint = find_resume_checkpoint() or self.resume_checkpoint
