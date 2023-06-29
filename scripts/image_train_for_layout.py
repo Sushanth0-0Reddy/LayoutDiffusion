@@ -1,7 +1,7 @@
 """
 Train a diffusion model on images.
 """
-
+print("Hi")
 import argparse
 
 import torch.distributed as dist
@@ -14,15 +14,16 @@ from layout_diffusion.layout_diffusion_unet import build_model
 from layout_diffusion.resample import build_schedule_sampler
 from layout_diffusion.dataset.data_loader import build_loaders
 from layout_diffusion.respace import build_diffusion
-
+#from torch.summary import summary
 
 
 
 
 def main():
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument("--config_file", type=str, default='./configs/LayoutDiffusion-v1.yaml')
+    parser.add_argument("--config_file", type=str, default='./configs/COCO-stuff_256x256/LayoutDiffusion_large.yaml')
     known_args, unknown_args = parser.parse_known_args()
 
     known_args = OmegaConf.create(known_args.__dict__)
@@ -31,7 +32,7 @@ def main():
         unknown_args = OmegaConf.from_dotlist(unknown_args)
         cfg = OmegaConf.merge(cfg, unknown_args)
     print(OmegaConf.to_yaml(cfg))
-
+    
     dist_util.setup_dist(local_rank=cfg.local_rank)
     logger.configure(dir=cfg.train.log_dir)
     logger.log('current rank == {}, total_num = {}, \n, {}'.format(dist.get_rank(), dist.get_world_size(), cfg))
@@ -40,7 +41,7 @@ def main():
     model = build_model(cfg)
     model.to(dist_util.dev())
     print(model)
-
+    #summary(model, (1,3, 256, 256))
     logger.log("creating diffusion...")
     diffusion = build_diffusion(cfg)
 

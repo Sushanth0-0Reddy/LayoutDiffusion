@@ -41,6 +41,7 @@ def space_timesteps(num_timesteps, section_counts, sample_method='ddpm'):
                            DDIM paper.
     :return: a set of diffusion steps from the original process to use.
     """
+    #print(sample_method)
     assert sample_method in ['ddim', 'ddpm']
     if sample_method == 'ddim':
         assert len(section_counts) == 1

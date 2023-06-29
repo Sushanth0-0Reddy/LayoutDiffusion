@@ -7,14 +7,14 @@ import argparse
 import json
 import os
 import time
-
+import numpy as np
 import imageio
 import torch
 import torch as th
 import torch.distributed as dist
 from omegaconf import OmegaConf
 from torchvision import utils
-
+import cv2
 from layout_diffusion import dist_util, logger
 from layout_diffusion.dataset.data_loader import build_loaders
 from layout_diffusion.layout_diffusion_unet import build_model
@@ -25,6 +25,7 @@ from dpm_solver_pytorch import NoiseScheduleVP, model_wrapper, DPM_Solver
 
 
 def imageio_save_image(img_tensor, path):
+    print(img_tensor.shape,str(path))
     '''
     :param img_tensor: (C, H, W) torch.Tensor
     :param path:
@@ -33,11 +34,14 @@ def imageio_save_image(img_tensor, path):
     :return:
     '''
     tmp_img = image_unnormalize_batch(img_tensor).clamp(0.0, 1.0)
-
-    imageio.imsave(
+    im=tmp_img.cpu().detach().numpy().transpose(1, 2, 0)*255
+    im = im.astype(np.uint8)
+    print(im.shape,type(im),im.max())
+    cv2.imwrite(path, im)
+    '''imageio.imsave(
         uri=path,
-        im=tmp_img.cpu().detach().numpy().transpose(1, 2, 0),  # (H, W, C) numpy
-    )
+        im=im,  # (H, W, C) numpy
+    )'''
 
 
 def main():
@@ -149,6 +153,10 @@ def main():
             for class_id in range(1, 179):  # 1-178
                 os.makedirs(os.path.join(log_dir, 'generated_cropped_imgs', str(class_id)), exist_ok=True)
                 os.makedirs(os.path.join(log_dir, 'real_cropped_imgs', str(class_id)), exist_ok=True)
+        elif cfg.data.type == 'MN':
+            for class_id in range(1, 183):  # 1-178
+                os.makedirs(os.path.join(log_dir, 'generated_cropped_imgs', str(class_id)), exist_ok=True)
+                os.makedirs(os.path.join(log_dir, 'real_cropped_imgs', str(class_id)), exist_ok=True)
         else:
             raise NotImplementedError
 
@@ -219,7 +227,7 @@ def main():
 
             for img_idx in range(imgs.shape[0]):
                 start_time = time.time()
-                filename = cond['filename'][img_idx]
+                filename = str(img_idx)#cond['filename'][img_idx]
                 obj_num = cond['num_obj'][img_idx]
                 obj_class = cond['obj_class'][img_idx]
                 obj_name = cond['obj_class_name'][img_idx]
@@ -228,7 +236,7 @@ def main():
                 absolute_obj_bbox = obj_bbox.clone()
                 absolute_obj_bbox[:, 0::2] = obj_bbox[:, 0::2] * imgs[img_idx].shape[2]
                 absolute_obj_bbox[:, 1::2] = obj_bbox[:, 1::2] * imgs[img_idx].shape[1]
-
+                #print(sample.shape)
                 # save generated imgs
                 imageio_save_image(
                     img_tensor=sample[img_idx],

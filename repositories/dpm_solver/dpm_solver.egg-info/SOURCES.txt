@@ -1,0 +1,8 @@
+LICENSE
+README.md
+setup.py
+dpm_solver.egg-info/PKG-INFO
+dpm_solver.egg-info/SOURCES.txt
+dpm_solver.egg-info/dependency_links.txt
+dpm_solver.egg-info/requires.txt
+dpm_solver.egg-info/top_level.txt

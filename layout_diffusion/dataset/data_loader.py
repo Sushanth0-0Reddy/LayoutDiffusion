@@ -1,6 +1,7 @@
 
 from .coco import build_coco_dsets, coco_collate_fn_for_layout
 from .vg import build_vg_dsets, vg_collate_fn_for_layout
+from .mn import build_mn_dsets, mn_collate_fn_for_layout
 import torch.distributed as dist
 from torch.utils.data.distributed import DistributedSampler
 from torch.utils.data import DataLoader
@@ -15,6 +16,9 @@ def build_loaders(cfg, mode='train'):
     elif cfg.data.type == 'VG':
         dataset = build_vg_dsets(cfg, mode=mode)
         collate_fn = vg_collate_fn_for_layout
+    elif cfg.data.type == 'MN':
+        dataset = build_mn_dsets(cfg, mode=mode)
+        collate_fn = mn_collate_fn_for_layout
     else:
         raise NotImplementedError
 

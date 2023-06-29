@@ -1,0 +1,7 @@
+README.md
+setup.py
+layout_diffusion.egg-info/PKG-INFO
+layout_diffusion.egg-info/SOURCES.txt
+layout_diffusion.egg-info/dependency_links.txt
+layout_diffusion.egg-info/requires.txt
+layout_diffusion.egg-info/top_level.txt

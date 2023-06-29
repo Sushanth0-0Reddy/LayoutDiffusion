@@ -8,7 +8,8 @@ import torch.distributed as dist
 from torch.nn.parallel.distributed import DistributedDataParallel as DDP
 from torch.optim import AdamW
 
-from . import dist_util, logger
+from . import dist_util
+from . import logger
 from .fp16_util import MixedPrecisionTrainer
 from .nn import update_ema
 from layout_diffusion.resample import LossAwareSampler, UniformSampler
@@ -86,7 +87,7 @@ class TrainLoop:
 
         self.step = 0
         self.resume_step = 0
-        self.global_batch = self.batch_size * dist.get_world_size()
+        self.global_batch = self.batch_size * 1#dist.get_world_size()
 
         self.sync_cuda = th.cuda.is_available()
 
@@ -126,7 +127,7 @@ class TrainLoop:
                 find_unused_parameters=self.find_unused_parameters,
             )
         else:
-            if dist.get_world_size() > 1:
+            if 1 > 1: #dist.get_world_size()
                 logger.warn(
                     "Distributed training requires CUDA. "
                     "Gradients will not be synchronized properly!"
@@ -244,6 +245,7 @@ class TrainLoop:
         self.mp_trainer.zero_grad()
         for i in range(0, batch.shape[0], self.micro_batch_size):
             micro = batch[i: i + self.micro_batch_size].to(dist_util.dev())
+            print("micro_shape-",micro.shape)
             micro_cond = {
                 k: v[i: i + self.micro_batch_size].to(dist_util.dev())
                 for k, v in cond.items() if k in self.model.layout_encoder.used_condition_types
