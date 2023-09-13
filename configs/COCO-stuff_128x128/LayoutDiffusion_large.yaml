@@ -64,7 +64,7 @@ data:
     mask_size_for_layout_object: 32
     loader_num_workers: 4
     include_relationships: False
-    root_dir: '/workspace/mnt/storage/zhouxianpan/COCO-stuff'
+    root_dir: 'C:\GitHub\LayoutDiffusion\datasets\coco'
     instance_whitelist: null
     stuff_whitelist: null
     include_other: False

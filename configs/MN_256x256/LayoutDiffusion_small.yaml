@@ -57,11 +57,11 @@ data:
   parameters:
     image_size: 256
     layout_length: 10
-    num_classes_for_layout_object: 112
+    num_classes_for_layout_object: 96
     mask_size_for_layout_object: 32
     loader_num_workers: 4
     include_relationships: False
-    root_dir: '/workspace/mnt/storage/zhouxianpan/COCO-stuff'
+    root_dir: '/content/gdrive/MyDrive/meronymnet/LayoutDiffusion'
     max_objects_per_image: 16
     use_orphaned_objects: True
     used_condition_types: [ 'obj_class','obj_bbox' ]
@@ -103,7 +103,7 @@ train:
   classifier_free_dropout: 0.2
   lr: 1e-5
   ema_rate: "0.9999"
-  micro_batch_size: -1
+  micro_batch_size: 1
   save_interval: 10000
   log_interval: 1000
   log_dir: './log/MN_256x256/LayoutDiffusion-v7_small'
@@ -119,7 +119,7 @@ train:
 sample:
   fix_seed: True
   use_fp16: True
-  log_root: './log/COCO-stuff_256x256/LayoutDiffusion-v7_small'
+  log_root: './log/MN_256x256/LayoutDiffusion-v7_small'
   sample_suffix: 'model0400000'
   pretrained_model_path: './log/COCO-stuff_256x256/LayoutDiffusion-v7_small/ema_0.9999_0400000.pt'
   classifier_free: True

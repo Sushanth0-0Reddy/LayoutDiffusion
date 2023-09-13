@@ -113,7 +113,7 @@ data:
 
 
 train:
-  pretrained_model_path: ''
+  pretrained_model_path: './pretrained_models/COCO-stuff_256x256_LayoutDiffusion_large_ema_1150000.pt'
   resume_checkpoint: ''
   classifier_free: True
   classifier_free_dropout: 0.2

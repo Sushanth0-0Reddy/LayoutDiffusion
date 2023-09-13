@@ -1,11 +1,11 @@
 
-WORKSPACE="c:\GitHub\LayoutDiffusion"
+WORKSPACE="/content/gdrive/MyDrive/meronymnet/LayoutDiffusion"
 cd ${WORKSPACE}
 
-conda activate LayoutDiffusion
+
 
 python -m torch.distributed.launch \
        --nproc_per_node 1 \
        scripts/image_train_for_layout.py \
-       --config_file ./configs/COCO-stuff_256x256/LayoutDiffusion_small.yaml
-#"C:\GitHub\LayoutDiffusion\configs\COCO-stuff_256x256\LayoutDiffusion_small.yaml"
+       --config_file ./configs/MN_128x128/LayoutDiffusion_large.yaml
+#"C:\GitHub\LayoutDiffusion\configs\MN_128x128\LayoutDiffusion_large.yaml"

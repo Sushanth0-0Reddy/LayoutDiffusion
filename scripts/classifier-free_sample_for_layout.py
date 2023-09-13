@@ -47,7 +47,7 @@ def imageio_save_image(img_tensor, path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int, default=0)
-    parser.add_argument("--config_file", type=str, default='./configs/LayoutDiffusion-v1.yaml')
+    parser.add_argument("--config_file", type=str, default='./configs/MN_128x128/LayoutDiffusion_large.yaml')
 
     known_args, unknown_args = parser.parse_known_args()
 
@@ -78,6 +78,7 @@ def main():
     if cfg.sample.pretrained_model_path:
         logger.log("loading model from {}".format(cfg.sample.pretrained_model_path))
         checkpoint = dist_util.load_state_dict(cfg.sample.pretrained_model_path, map_location="cpu")
+        print(checkpoint.keys())
         if 'layout_encoder.obj_box_embedding.weight' in list(checkpoint.keys()):
             checkpoint['layout_encoder.obj_bbox_embedding.weight'] = checkpoint.pop('layout_encoder.obj_box_embedding.weight')
             checkpoint['layout_encoder.obj_bbox_embedding.bias'] = checkpoint.pop('layout_encoder.obj_box_embedding.bias')
@@ -392,3 +393,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -59,7 +59,7 @@ data:
     image_size: 256
     layout_length: 12
     
-    num_classes_for_layout_object: 185
+    num_classes_for_layout_object: 96
     
     mask_size_for_layout_object: 32
     loader_num_workers: 4
@@ -103,7 +103,7 @@ data:
 
 
 train:
-  pretrained_model_path: ''
+  pretrained_model_path: './pretrained_models/COCO-stuff_256x256_LayoutDiffusion_large_ema_1150000.pt'
   resume_checkpoint: ''
   classifier_free: True
   classifier_free_dropout: 0.2

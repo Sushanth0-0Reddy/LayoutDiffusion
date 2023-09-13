@@ -80,10 +80,10 @@ data:
       instances_json: 'annotations/instances_train2017.json'
       stuff_json: 'annotations/stuff_train2017.json'
       deprecated_stuff_ids_txt: 'annotations/deprecated-challenge2017/train-ids.txt'
-      max_num_samples: 1000
+      max_num_samples: null
       specific_image_ids: [ ]
       shuffle: True
-      batch_size: 1          # 8 GPUs, total_batch_size=4x8=32
+      batch_size: 4          # 8 GPUs, total_batch_size=4x8=32
       left_right_flip: True
       use_MinIoURandomCrop: True
     val:
@@ -91,10 +91,10 @@ data:
       instances_json: 'annotations/instances_val2017.json'
       stuff_json: 'annotations/stuff_val2017.json'
       deprecated_stuff_ids_txt: 'annotations/deprecated-challenge2017/val-ids.txt'
-      max_num_samples: 100
+      max_num_samples: 1024
       specific_image_ids: [ ]
       shuffle: False
-      batch_size: 1
+      batch_size: 8
       left_right_flip: False
       use_MinIoURandomCrop: False
 
@@ -106,14 +106,14 @@ data:
       max_num_samples: 10
       specific_image_ids: [ ]
       shuffle: False
-      batch_size: 1
+      batch_size: 32
       left_right_flip: False
       use_MinIoURandomCrop: False
 
 
 
 train:
-  pretrained_model_path: ''
+  pretrained_model_path: './pretrained_models/COCO-stuff_256x256_LayoutDiffusion_large_ema_1150000.pt'
   resume_checkpoint: ''
   classifier_free: True
   classifier_free_dropout: 0.2
