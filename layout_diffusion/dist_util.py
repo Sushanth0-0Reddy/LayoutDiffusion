@@ -24,7 +24,7 @@ def setup_dist(local_rank=0):
 
     th.cuda.set_device(local_rank)
     os.environ["CUDA_VISIBLE_DEVICES"] = f"{local_rank}"
-    dist.init_process_group(backend='gloo', init_method="env://")
+    dist.init_process_group(backend='nccl', init_method="env://")
 
 
 def dev():

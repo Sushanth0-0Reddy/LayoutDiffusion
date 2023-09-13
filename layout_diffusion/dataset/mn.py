@@ -43,7 +43,7 @@ def get_class_and_part_names(index_class_dict,class_comb_dict,index_part_list,X,
     final_labels = filtered_labels(labels_v,class_comb_dict)
     
     
-    labels_v = labels_v.flatten()[0:16]
+    #labels_v = labels_v.flatten()[0:16]
     #print(len(class_comb_dict[class_name].keys()))
     
     y = np.where(X[:, 0] == 1)
@@ -67,9 +67,8 @@ class MeronymnetDataset(Dataset):
     
     
     def __init__(self, images , X, class_v, index_class_dict, index_part_list, class_comb_dict, image_size=(256, 256),
-                 max_objects_per_image=16, max_num_samples=None, mask_size=32,
-                 use_orphaned_objects=True,  
-                 left_right_flip=False, min_object_size=1/256, use_MinIoURandomCrop=False,
+                 max_objects_per_image=16, max_num_samples=None, mask_size=32,  
+                 left_right_flip=False, min_object_size=1/128, use_MinIoURandomCrop=False,
                  return_origin_image=False, specific_image_ids=[]
                  ):
         super(MeronymnetDataset, self).__init__()
@@ -92,7 +91,6 @@ class MeronymnetDataset(Dataset):
         self.min_object_size = min_object_size
         # self.vocab = vocab
         self.num_objects = 94
-        self.use_orphaned_objects = use_orphaned_objects
         self.max_objects_per_image = max_objects_per_image
         self.max_num_samples = max_num_samples
         self.left_right_flip = left_right_flip
@@ -405,7 +403,7 @@ def mn_collate_fn_for_layout(batch):
 
 
 def load_data(mode):
-    data_path = 'C:/GitHub/meronymnet/data_np_16/'
+    data_path = '/content/gdrive/MyDrive/meronymnet/meronymnet/data_np_16/'
     part_data_post_fix = '_scaled_sqr'
     obj_data_postfix = '_obj_boundary_sqr'
     file_postfix = '_combined_mask_data'
@@ -623,7 +621,6 @@ def build_mn_dsets(cfg, mode='train'):
         max_num_samples=params[mode].max_num_samples,
         max_objects_per_image=params.max_objects_per_image,
         left_right_flip=params[mode].left_right_flip,
-        use_orphaned_objects=params.use_orphaned_objects,
         use_MinIoURandomCrop=params[mode].use_MinIoURandomCrop,
         return_origin_image=params.return_origin_image,
         specific_image_ids=params[mode].specific_image_ids

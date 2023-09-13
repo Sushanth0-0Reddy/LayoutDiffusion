@@ -441,12 +441,6 @@ class ObjectAwareCrossAttention(nn.Module):
         # )
 
     def forward(self, x, cond_kwargs):
-        '''
-        :param x: (N, C, H, W)
-        :param cond_kwargs['xf_out']: (N, C, L2)
-        :return:
-            extra_output: N x L2 x 3 x ds x ds
-        '''
         extra_output = None
         b, c, *spatial = x.shape
         x = x.reshape(b, c, -1)  # N x C x (HxW)

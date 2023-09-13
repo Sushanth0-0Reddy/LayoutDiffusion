@@ -16,12 +16,12 @@ from tqdm import tqdm
 import torch
 import numpy as np
 from layout_diffusion.layout_diffusion_unet import LayoutDiffusionUNetModel
-
+from torch.utils.tensorboard import SummaryWriter
 # For ImageNet experiments, this was a good default value.
 # We found that the lg_loss_scale quickly climbed to
 # 20-21 within the first ~1K steps of training.
 INITIAL_LOG_LOSS_SCALE = 20.0
-from diffusers.models import AutoencoderKL
+#from diffusers.models import AutoencoderKL
 
 class TrainLoop:
     def __init__(
@@ -47,13 +47,16 @@ class TrainLoop:
             classifier_free=False,
             classifier_free_dropout=0.0,
             pretrained_model_path='',
-            log_dir="",
+            log_dir="log",
             latent_diffusion=False
+            
     ):
+
         self.log_dir =log_dir
         logger.configure(dir=log_dir)
         self.model = model
         self.pretrained_model_path = pretrained_model_path
+        self.writer = SummaryWriter(log_dir=self.log_dir)
         if pretrained_model_path:
             logger.log("loading model from {}".format(pretrained_model_path))
             try:
@@ -261,6 +264,7 @@ class TrainLoop:
         self.log_step()
 
     def forward_backward(self, batch, cond):
+      
         self.mp_trainer.zero_grad()
         for i in range(0, batch.shape[0], self.micro_batch_size):
             micro = batch[i: i + self.micro_batch_size].to(dist_util.dev())
@@ -313,7 +317,13 @@ class TrainLoop:
     def log_step(self):
         logger.logkv("step", self.step + self.resume_step)
         logger.logkv("samples", (self.step + self.resume_step + 1) * self.global_batch)
+        # Log step and samples to TensorBoard
+        self.writer.add_scalar("Step", self.step + self.resume_step, self.step + self.resume_step)
+        self.writer.add_scalar("Samples", (self.step + self.resume_step + 1) * self.global_batch, self.step + self.resume_step)
 
+    '''
+    def save(self):
+    '''
     def save(self):
         def save_checkpoint(rate, params):
             state_dict = self.mp_trainer.master_params_to_state_dict(params)
@@ -336,10 +346,62 @@ class TrainLoop:
                     "wb",
             ) as f:
                 th.save(self.opt.state_dict(), f)
-
+        for key, values in losses.items():
+            logger.logkv_mean(key, values.mean().item())
+            self.writer.add_scalar(key, values.mean().item(), self.step + self.resume_step)
         dist.barrier()
 
+class NewTrainLoop(TrainLoop):
+    def __init__(self, freeze_layers=True, last_layer_name="last_layer", **kwargs):
+        super().__init__(**kwargs)
+        self.freeze_layers = freeze_layers
+        self.last_layer_name = last_layer_name
 
+        if self.freeze_layers:
+            self.freeze_all_layers_except_last()
+
+    def freeze_all_layers_except_last(self):
+        for name, param in self.model.named_parameters():
+            if name != self.last_layer_name:
+                param.requires_grad = False
+
+    def forward_backward(self, batch, cond):
+        self.mp_trainer.zero_grad()
+        for i in range(0, batch.shape[0], self.micro_batch_size):
+            micro = batch[i: i + self.micro_batch_size].to(dist_util.dev())
+            if self.latent_diffusion:
+                micro = self.get_first_stage_encoding(micro).detach()
+            micro_cond = {
+                k: v[i: i + self.micro_batch_size].to(dist_util.dev())
+                for k, v in cond.items() if k in self.model.layout_encoder.used_condition_types
+            }
+            last_batch = (i + self.micro_batch_size) >= batch.shape[0]
+            t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
+
+            compute_losses = functools.partial(
+                self.diffusion.training_losses,
+                self.ddp_model,
+                micro,
+                t,
+                model_kwargs=micro_cond,
+            )
+
+            if last_batch or not self.use_ddp:
+                losses = compute_losses()
+            else:
+                with self.ddp_model.no_sync():
+                    losses = compute_losses()
+
+            if isinstance(self.schedule_sampler, LossAwareSampler):
+                self.schedule_sampler.update_with_local_losses(
+                    t, losses["loss"].detach()
+                )
+
+            loss = (losses["loss"] * weights).mean()
+            log_loss_dict(
+                self.diffusion, t, {k: v * weights for k, v in losses.items()}
+            )
+            self.mp_trainer.backward(loss)
 def parse_resume_step_from_filename(filename):
     """
     Parse filenames of the form path/to/modelNNNNNN.pt, where NNNNNN is the
