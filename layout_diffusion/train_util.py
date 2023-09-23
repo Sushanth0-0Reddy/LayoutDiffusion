@@ -1,7 +1,7 @@
 import copy
 import functools
 import os
-
+import gc 
 import blobfile as bf
 import torch as th
 import torch.distributed as dist
@@ -119,6 +119,9 @@ class TrainLoop:
             ]
 
         if th.cuda.is_available():
+          pass
+          '''
+            
             self.use_ddp = True
             self.find_unused_parameters = find_unused_parameters
             self.ddp_model = DDP(
@@ -129,15 +132,16 @@ class TrainLoop:
                 bucket_cap_mb=128,
                 find_unused_parameters=self.find_unused_parameters,
             )
-        else:
-            if dist.get_world_size() > 1:
-                logger.warn(
-                    "Distributed training requires CUDA. "
-                    "Gradients will not be synchronized properly!"
-                )
-            self.use_ddp = False
-            self.ddp_model = self.model
-
+          '''
+        #else:
+          if dist.get_world_size() > 1:
+              logger.warn(
+                  "Distributed training requires CUDA. "
+                  "Gradients will not be synchronized properly!"
+              )
+          self.use_ddp = False
+          self.ddp_model = self.model
+        
         self.classifier_free = classifier_free
         self.classifier_free_dropout = classifier_free_dropout
         self.dropout_condition = False
@@ -205,7 +209,13 @@ class TrainLoop:
                 opt_checkpoint, map_location=dist_util.dev()
             )
             self.opt.load_state_dict(state_dict)
-
+    def summary_allocated_tensors(self):
+        total_size = 0
+        for obj in gc.get_objects():
+            if torch.is_tensor(obj):
+                size = obj.element_size() * obj.nelement()
+                total_size += size
+                print(f"Tensor of size {obj.size()} - Total size: {size / (1024 ** 2):.2f} MB")
     def run_loop(self):
         def run_loop_generator():
             while (
@@ -213,55 +223,71 @@ class TrainLoop:
                     or self.step + self.resume_step < self.lr_anneal_steps
             ):
                 yield
-
         for _ in tqdm(run_loop_generator()):
+            # Measure memory usage before each iteration
+            start_allocated = torch.cuda.memory_allocated()
+            start_cached = torch.cuda.memory_cached()
+            #print('\nStart Memory allocated (MB):', (start_allocated) / (1024 * 1024))
+            #print('Start Memory cached (MB):', (start_cached) / (1024 * 1024))
+            #self.summary_allocated_tensors()
+            # Existing code for the training loop
             batch, cond = next(self.data)
             if self.classifier_free and self.classifier_free_dropout > 0.0:
                 p = np.random.rand()
                 self.dropout_condition = False
                 if p < self.classifier_free_dropout:
                     self.dropout_condition = True
+                    # Code for modifying cond based on dropout condition
 
-                    if isinstance(self.model, LayoutDiffusionUNetModel):
-                        if 'obj_class' in self.model.layout_encoder.used_condition_types:
-                            cond['obj_class'] = torch.ones_like(cond['obj_class']).fill_(self.model.layout_encoder.num_classes_for_layout_object - 1)
-                            cond['obj_class'][:, 0] = 0
-                        if 'obj_bbox' in self.model.layout_encoder.used_condition_types:
-                            cond['obj_bbox'] = torch.zeros_like(cond['obj_bbox'])
-                            cond['obj_bbox'][:, 0] = torch.FloatTensor([0, 0, 1, 1])
-                        if 'obj_mask' in self.model.layout_encoder.used_condition_types:
-                            cond['obj_mask'] = torch.zeros_like(cond['obj_mask'])
-                            cond['obj_mask'][:, 0] = torch.ones(cond['obj_mask'].shape[-2:])
-                        cond['is_valid_obj'] = torch.zeros_like(cond['is_valid_obj'])
-                        cond['is_valid_obj'][:, 0] = 1.0
-
+            # Call the run_step function to profile memory usage
             self.run_step(batch, cond)
+
             if self.step % self.log_interval == 0:
                 logger.dumpkvs()
 
             if self.step % self.save_interval == 0 and self.step > 0:
                 self.save()
-                # Run for a finite amount of time in integration tests.
-                if os.environ.get("DIFFUSION_TRAINING_TEST", "") and self.step > 0:
-                    return
-                
-                # if (self.step + self.resume_step) >= 100000:
-                #     return
 
             self.step += 1
-            # torch.cuda.empty_cache()
 
-        # Save the last checkpoint if it wasn't already saved.
-        if (self.step - 1) % self.save_interval != 0:
-            self.save()
+            # Measure memory usage after each iteration
+            end_allocated = torch.cuda.memory_allocated()
+            end_cached = torch.cuda.memory_cached()
+            torch.cuda.empty_cache()
+            # Print memory statistics for each iteration
+            #print('Memory allocated after iteration (MB):', (end_allocated - start_allocated) / (1024 * 1024))
+            #print('Memory cached after iteration (MB):', (end_cached - start_cached) / (1024 * 1024))
+
+        # Print memory statistics after the training loop completes
+        #print('Memory allocated (MB) after training loop:', torch.cuda.memory_allocated() / (1024 * 1024))
+        #print('Memory cached (MB) after training loop:', torch.cuda.memory_cached() / (1024 * 1024))
+
 
     def run_step(self, batch, cond):
+        # Measure memory usage before running the step
+        start_allocated = torch.cuda.memory_allocated()
+        start_cached = torch.cuda.memory_cached()
+
+        # Existing code for run_step
         self.forward_backward(batch, cond)
+        # Measure memory usage after running the step
+        end_allocated = torch.cuda.memory_allocated()
+        end_cached = torch.cuda.memory_cached()
+        # Print memory statistics
+        #print('Memory allocated in forward_backward (MB):', (end_allocated - start_allocated) / (1024 * 1024))
+        #print('Memory cached in forward_backward (MB):', (end_cached - start_cached) / (1024 * 1024))
         took_step = self.mp_trainer.optimize(self.opt)
         if took_step:
             self._update_ema()
         self._anneal_lr()
         self.log_step()
+        # Measure memory usage after running the step
+        end_allocated = torch.cuda.memory_allocated()
+        end_cached = torch.cuda.memory_cached()
+        # Print memory statistics
+        #print('Memory allocated after runstep (MB):', (end_allocated - start_allocated) / (1024 * 1024))
+        #print('Memory cached after runstep(MB):', (end_cached - start_cached) / (1024 * 1024))
+
 
     def forward_backward(self, batch, cond):
       
@@ -293,12 +319,12 @@ class TrainLoop:
 
             if isinstance(self.schedule_sampler, LossAwareSampler):
                 self.schedule_sampler.update_with_local_losses(
-                    t, losses["loss"].detach()
+                    t, losses["loss"].item()
                 )
 
             loss = (losses["loss"] * weights).mean()
             log_loss_dict(
-                self.diffusion, t, {k: v * weights for k, v in losses.items()}
+                self.diffusion, t, {k: v.item() * weights for k, v in losses.items()}
             )
             self.mp_trainer.backward(loss)
 
@@ -346,62 +372,22 @@ class TrainLoop:
                     "wb",
             ) as f:
                 th.save(self.opt.state_dict(), f)
-        for key, values in losses.items():
-            logger.logkv_mean(key, values.mean().item())
-            self.writer.add_scalar(key, values.mean().item(), self.step + self.resume_step)
         dist.barrier()
 
-class NewTrainLoop(TrainLoop):
-    def __init__(self, freeze_layers=True, last_layer_name="last_layer", **kwargs):
+
+class TrainLoopWithTensorboard(TrainLoop):
+    def __init__(self, tensorboard_logdir, **kwargs):
         super().__init__(**kwargs)
-        self.freeze_layers = freeze_layers
-        self.last_layer_name = last_layer_name
+        self.tensorboard_logdir = tensorboard_logdir
+        self.tensorboard_writer = SummaryWriter(log_dir=self.tensorboard_logdir)
 
-        if self.freeze_layers:
-            self.freeze_all_layers_except_last()
+    def log_step(self):
+        super().log_step()
+        # Log step and samples to TensorBoard
+        self.tensorboard_writer.add_scalar("Step", self.step + self.resume_step, self.step + self.resume_step)
+        self.tensorboard_writer.add_scalar("Samples", (self.step + self.resume_step + 1) * self.global_batch, self.step + self.resume_step)
 
-    def freeze_all_layers_except_last(self):
-        for name, param in self.model.named_parameters():
-            if name != self.last_layer_name:
-                param.requires_grad = False
-
-    def forward_backward(self, batch, cond):
-        self.mp_trainer.zero_grad()
-        for i in range(0, batch.shape[0], self.micro_batch_size):
-            micro = batch[i: i + self.micro_batch_size].to(dist_util.dev())
-            if self.latent_diffusion:
-                micro = self.get_first_stage_encoding(micro).detach()
-            micro_cond = {
-                k: v[i: i + self.micro_batch_size].to(dist_util.dev())
-                for k, v in cond.items() if k in self.model.layout_encoder.used_condition_types
-            }
-            last_batch = (i + self.micro_batch_size) >= batch.shape[0]
-            t, weights = self.schedule_sampler.sample(micro.shape[0], dist_util.dev())
-
-            compute_losses = functools.partial(
-                self.diffusion.training_losses,
-                self.ddp_model,
-                micro,
-                t,
-                model_kwargs=micro_cond,
-            )
-
-            if last_batch or not self.use_ddp:
-                losses = compute_losses()
-            else:
-                with self.ddp_model.no_sync():
-                    losses = compute_losses()
-
-            if isinstance(self.schedule_sampler, LossAwareSampler):
-                self.schedule_sampler.update_with_local_losses(
-                    t, losses["loss"].detach()
-                )
-
-            loss = (losses["loss"] * weights).mean()
-            log_loss_dict(
-                self.diffusion, t, {k: v * weights for k, v in losses.items()}
-            )
-            self.mp_trainer.backward(loss)
+    
 def parse_resume_step_from_filename(filename):
     """
     Parse filenames of the form path/to/modelNNNNNN.pt, where NNNNNN is the

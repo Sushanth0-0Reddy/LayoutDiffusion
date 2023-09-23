@@ -8,7 +8,7 @@ import torch.distributed as dist
 from omegaconf import OmegaConf
 
 from layout_diffusion import dist_util, logger
-from layout_diffusion.train_util import TrainLoop
+from layout_diffusion.train_util import TrainLoopWithTensorboard
 from layout_diffusion.util import loopy
 from layout_diffusion.layout_diffusion_unet import build_model
 from layout_diffusion.resample import build_schedule_sampler
@@ -16,7 +16,7 @@ from layout_diffusion.dataset.data_loader import build_loaders
 from layout_diffusion.respace import build_diffusion
 #from torch.summary import summary
 
-
+import torch
 
 
 def main():
@@ -40,7 +40,7 @@ def main():
     logger.log("creating model...")
     model = build_model(cfg)
     model.to(dist_util.dev())
-    print(model)
+    #print(model)
     #summary(model, (1,3, 256, 256))
     logger.log("creating diffusion...")
     diffusion = build_diffusion(cfg)
@@ -52,15 +52,28 @@ def main():
     train_loader = build_loaders(cfg, mode='train')
 
     logger.log("training...")
-    trainer = TrainLoop(
+    # Measure memory usage before each iteration
+    start_allocated = torch.cuda.memory_allocated()
+    start_cached = torch.cuda.memory_cached()
+    print('Memory allocated (MB) after building model :', (start_allocated) / (1024 * 1024))
+    print('Memory cached (MB) after building model:', (start_cached) / (1024 * 1024))
+    trainer = TrainLoopWithTensorboard(
         model=model,
         diffusion=diffusion,
         schedule_sampler=schedule_sampler,
         data=loopy(train_loader),
         batch_size=cfg.data.parameters.train.batch_size,
+        tensorboard_logdir="./tensorboard_logs/no_freezing",  # Specify the actual tensorboard log directory
         **cfg.train
     )
+
+    start_allocated = torch.cuda.memory_allocated()
+    start_cached = torch.cuda.memory_cached()
+    print('Memory allocated (MB) after building trainer :', (start_allocated) / (1024 * 1024))
+    print('Memory cached (MB) after building trainer:', (start_cached) / (1024 * 1024))
+    
     trainer.run_loop()
+
 
 
 if __name__ == "__main__":
